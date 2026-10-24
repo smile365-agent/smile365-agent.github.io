@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0e0c0a" />
+  <meta name="description" content="YOLO 摄像头检测 — YOLOv8n 本地浏览器物体检测。Webcam object detection in your browser." />
+  <title>YOLO 摄像头检测 · YOLO Webcam</title>
+  <style>
+    :root {
+      --bg: #0e0c0a;
+      --bg-elev: #161310;
+      --border: #2a241c;
+      --copper: #c4a574;
+      --copper-dim: #8a734f;
+      --text: #e8dcc8;
+      --muted: #9a8f7c;
+      --danger: #d4726a;
+      --ok: #8fbc8f;
+      --font: "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC",
+        "Microsoft YaHei", system-ui, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100%;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 1.25rem 1rem 2.5rem;
+    }
+
+    .wrap {
+      width: 100%;
+      max-width: 720px;
+    }
+
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 0.75rem 1.25rem;
+      margin-bottom: 1.25rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.9rem;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.35rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      color: var(--text);
+    }
+
+    h1 .en {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 400;
+      color: var(--muted);
+      margin-top: 0.2rem;
+      letter-spacing: 0.04em;
+    }
+
+    .back {
+      color: var(--copper);
+      text-decoration: none;
+      font-size: 0.9rem;
+      border-bottom: 1px solid transparent;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .back:hover {
+      color: var(--text);
+      border-bottom-color: var(--copper-dim);
+    }
+
+    .privacy {
+      background: var(--bg-elev);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--copper);
+      padding: 0.7rem 0.9rem;
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-bottom: 1rem;
+      line-height: 1.5;
+    }
+    .privacy strong { color: var(--copper); font-weight: 600; }
+
+    .stage {
+      position: relative;
+      width: 100%;
+      max-width: 100%;
+      background: #050403;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+      aspect-ratio: 4 / 3;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Mirror preview only on the video; canvas boxes are X-flipped in JS so labels stay readable. */
+    .stage.mirror video {
+      transform: scaleX(-1);
+    }
+
+    video, canvas#overlay {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      max-width: 100%;
+    }
+
+    video {
+      background: #050403;
+    }
+
+    canvas#overlay {
+      pointer-events: none;
+    }
+
+    .placeholder {
+      color: var(--muted);
+      font-size: 0.9rem;
+      text-align: center;
+      padding: 1.5rem;
+      z-index: 1;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.75rem 1rem;
+      margin-top: 1rem;
+    }
+
+    button#start {
+      appearance: none;
+      border: 1px solid var(--copper);
+      background: transparent;
+      color: var(--copper);
+      font: inherit;
+      font-size: 0.95rem;
+      padding: 0.55rem 1.15rem;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    button#start:hover:not(:disabled) {
+      background: var(--copper);
+      color: var(--bg);
+    }
+    button#start:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem 1.25rem;
+      font-size: 0.85rem;
+      color: var(--muted);
+      flex: 1;
+    }
+
+    #status { color: var(--text); }
+    #status.error { color: var(--danger); }
+    #status.ok { color: var(--ok); }
+    #fps { font-variant-numeric: tabular-nums; min-width: 4.5rem; }
+
+    footer {
+      margin-top: 1.75rem;
+      font-size: 0.75rem;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    footer code {
+      font-size: 0.7rem;
+      color: var(--copper-dim);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>
+        YOLO 摄像头检测
+        <span class="en" lang="en">YOLOv8n webcam object detection</span>
+      </h1>
+      <a class="back" href="../">返回主页 <span lang="en">Home</span></a>
+    </header>
+
+    <p class="privacy">
+      <strong>隐私 · Privacy：</strong>
+      画面只在你浏览器本地跑，不上传服务器。
+      <span lang="en">Frames stay in your browser — nothing is uploaded.</span>
+    </p>
+
+    <div class="stage" id="stage">
+      <p class="placeholder" id="placeholder">点击下方按钮开启摄像头<br /><span lang="en">Tap below to open the camera</span></p>
+      <video id="video" playsinline muted></video>
+      <canvas id="overlay"></canvas>
+    </div>
+
+    <div class="controls">
+      <button type="button" id="start">开启摄像头</button>
+      <div class="meta">
+        <span id="status">就绪 · Ready</span>
+        <span id="fps">FPS —</span>
+      </div>
+    </div>
+
+    <footer>
+      模型 YOLOv8n（ONNX）via jsDelivr · 推理 onnxruntime-web 1.17.1 wasm ·
+      纯 JS letterbox + NMS，无 OpenCV。<br />
+      <code>static · GitHub Pages</code>
+    </footer>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.1/dist/ort.wasm.min.js"></script>
+  <script type="module">
+    import { loadYoloSession, runDetect, drawDetections, MODEL_URL } from "./detect.js";
+
+    const video = document.getElementById("video");
+    const canvas = document.getElementById("overlay");
+    const stage = document.getElementById("stage");
+    const placeholder = document.getElementById("placeholder");
+    const startBtn = document.getElementById("start");
+    const statusEl = document.getElementById("status");
+    const fpsEl = document.getElementById("fps");
+
+    let session = null;
+    let stream = null;
+    let running = false;
+    let inferBusy = false;
+    let rafId = 0;
+    let lastFpsTs = 0;
+    let frameCount = 0;
+    let facingUser = false;
+
+    function setStatus(text, kind = "") {
+      statusEl.textContent = text;
+      statusEl.className = kind;
+    }
+
+    function mapCameraError(err) {
+      const name = err && err.name;
+      if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+        return "权限被拒绝 — 请在浏览器设置中允许摄像头。Permission denied.";
+      }
+      if (name === "NotFoundError" || name === "DevicesNotFoundError") {
+        return "未找到摄像头设备。No camera found.";
+      }
+      if (name === "NotReadableError" || name === "TrackStartError") {
+        return "摄像头被占用或无法打开。Camera busy or unavailable.";
+      }
+      if (name === "OverconstrainedError") {
+        return "无法满足摄像头约束，将尝试备用。Constraint failed.";
+      }
+      if (!window.isSecureContext && location.hostname !== "localhost") {
+        return "需要 HTTPS 才能使用摄像头。HTTPS required for camera.";
+      }
+      return `摄像头错误：${err && err.message ? err.message : String(err)}`;
+    }
+
+    async function ensureModel() {
+      if (session) return session;
+      setStatus("加载模型… · Loading model…");
+      ort.env.wasm.wasmPaths =
+        "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.17.1/dist/";
+      ort.env.wasm.numThreads = Math.min(4, navigator.hardwareConcurrency || 2);
+      try {
+        session = await loadYoloSession(ort);
+        setStatus("模型已就绪 · Model ready", "ok");
+        return session;
+      } catch (err) {
+        console.error(err);
+        setStatus(
+          `模型加载失败。请检查网络或 CDN。Model load failed. (${MODEL_URL.split("/").pop()})`,
+          "error"
+        );
+        throw err;
+      }
+    }
+
+    async function openCamera() {
+      setStatus("请求权限… · Requesting permission…");
+      const tries = [
+        { video: { facingMode: { ideal: "environment" } }, audio: false },
+        { video: { facingMode: { ideal: "user" } }, audio: false },
+        { video: true, audio: false },
+      ];
+      let lastErr = null;
+      for (const constraints of tries) {
+        try {
+          const s = await navigator.mediaDevices.getUserMedia(constraints);
+          const track = s.getVideoTracks()[0];
+          const settings = track.getSettings ? track.getSettings() : {};
+          facingUser =
+            settings.facingMode === "user" ||
+            (constraints.video &&
+              constraints.video.facingMode &&
+              constraints.video.facingMode.ideal === "user" &&
+              !settings.facingMode);
+          // Desktop webcams: treat as user-facing for natural mirror preview
+          if (!settings.facingMode && !/Mobi|Android/i.test(navigator.userAgent)) {
+            facingUser = true;
+          }
+          return s;
+        } catch (err) {
+          lastErr = err;
+          if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+            throw err;
+          }
+        }
+      }
+      throw lastErr || new Error("getUserMedia failed");
+    }
+
+    async function loop() {
+      if (!running) return;
+      rafId = requestAnimationFrame(loop);
+      if (inferBusy || video.readyState < 2) return;
+      inferBusy = true;
+      const t0 = performance.now();
+      try {
+        const dets = await runDetect(session, ort, video);
+        drawDetections(canvas, video, dets, facingUser);
+        frameCount++;
+        const now = performance.now();
+        if (now - lastFpsTs >= 1000) {
+          const fps = (frameCount * 1000) / (now - lastFpsTs);
+          fpsEl.textContent = `FPS ${fps.toFixed(1)}`;
+          frameCount = 0;
+          lastFpsTs = now;
+        }
+        const ms = (performance.now() - t0).toFixed(0);
+        setStatus(`检测中 · Detecting (${ms} ms)`, "ok");
+      } catch (err) {
+        console.error(err);
+        setStatus(`推理错误：${err.message || err}`, "error");
+      } finally {
+        inferBusy = false;
+      }
+    }
+
+    async function start() {
+      startBtn.disabled = true;
+      try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          setStatus("此浏览器不支持摄像头 API。getUserMedia unsupported.", "error");
+          startBtn.disabled = false;
+          return;
+        }
+        await ensureModel();
+        stream = await openCamera();
+        video.srcObject = stream;
+        await video.play();
+        placeholder.hidden = true;
+        stage.classList.toggle("mirror", facingUser);
+        running = true;
+        lastFpsTs = performance.now();
+        frameCount = 0;
+        setStatus("检测中 · Detecting", "ok");
+        startBtn.textContent = "检测中…";
+        loop();
+      } catch (err) {
+        console.error(err);
+        if (String(statusEl.textContent).includes("模型加载失败")) {
+          /* already set */
+        } else {
+          setStatus(mapCameraError(err), "error");
+        }
+        startBtn.disabled = false;
+        startBtn.textContent = "开启摄像头";
+      }
+    }
+
+    startBtn.addEventListener("click", start);
+
+    window.addEventListener("beforeunload", () => {
+      running = false;
+      if (rafId) cancelAnimationFrame(rafId);
+      if (stream) stream.getTracks().forEach((t) => t.stop());
+    });
+  </script>
+</body>
+</html>
