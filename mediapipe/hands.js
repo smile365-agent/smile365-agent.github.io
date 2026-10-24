@@ -1,21 +1,22 @@
 /**
- * MediaPipe Hands webcam demo — loads UMD builds from jsDelivr, then runs.
+ * MediaPipe Hands — assets served from ./vendor (no external CDN).
  */
-const CDN = {
-  camera: "https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js",
-  drawing: "https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1675466124/drawing_utils.js",
-  hands: "https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/hands.js",
+const VENDOR = {
+  drawing: "./vendor/drawing_utils/drawing_utils.js",
+  hands: "./vendor/hands/hands.js",
+  handsBase: "./vendor/hands/",
 };
 
 function loadScript(src) {
   return new Promise((resolve, reject) => {
-    if (document.querySelector(`script[src="${src}"]`)) {
+    if (document.querySelector(`script[data-src="${src}"]`)) {
       resolve();
       return;
     }
     const s = document.createElement("script");
     s.src = src;
     s.async = true;
+    s.dataset.src = src;
     s.onload = () => resolve();
     s.onerror = () => reject(new Error(`Failed to load ${src}`));
     document.head.appendChild(s);
@@ -108,7 +109,6 @@ function onResults(results) {
   fitCanvas();
   ctx.save();
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  // Draw landmarks in mirrored space when stage is mirrored (video+canvas both flipped via CSS)
   if (results.multiHandLandmarks && window.drawConnectors && window.HAND_CONNECTIONS) {
     for (const landmarks of results.multiHandLandmarks) {
       drawConnectors(ctx, landmarks, HAND_CONNECTIONS, {
@@ -139,15 +139,13 @@ function onResults(results) {
 async function ensureHands() {
   if (hands) return hands;
   setStatus("加载 MediaPipe… · Loading…");
-  await loadScript(CDN.camera);
-  await loadScript(CDN.drawing);
-  await loadScript(CDN.hands);
+  await loadScript(VENDOR.drawing);
+  await loadScript(VENDOR.hands);
   if (!window.Hands) {
     throw new Error("Hands global missing after script load");
   }
   hands = new Hands({
-    locateFile: (file) =>
-      `https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4.1675469240/${file}`,
+    locateFile: (file) => VENDOR.handsBase + file,
   });
   hands.setOptions({
     maxNumHands: 2,
