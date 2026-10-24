@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0e0c0a" />
+  <meta name="description" content="MediaPipe Hands — 浏览器本地手部关键点追踪。Webcam hand landmarks in your browser." />
+  <title>MediaPipe Hands · 手部追踪</title>
+  <style>
+    :root {
+      --bg: #0e0c0a;
+      --bg-elev: #161310;
+      --border: #2a241c;
+      --copper: #c4a574;
+      --copper-dim: #8a734f;
+      --text: #e8dcc8;
+      --muted: #9a8f7c;
+      --danger: #d4726a;
+      --ok: #8fbc8f;
+      --font: "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Noto Sans SC",
+        "Microsoft YaHei", system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0;
+      background: var(--bg); color: var(--text);
+      font-family: var(--font); min-height: 100%;
+    }
+    body {
+      display: flex; flex-direction: column; align-items: center;
+      padding: 1.25rem 1rem 2.5rem;
+    }
+    .wrap { width: 100%; max-width: 720px; }
+    header {
+      display: flex; flex-wrap: wrap; align-items: baseline;
+      justify-content: space-between; gap: 0.75rem 1.25rem;
+      margin-bottom: 1.25rem; border-bottom: 1px solid var(--border);
+      padding-bottom: 0.9rem;
+    }
+    h1 {
+      margin: 0; font-size: 1.35rem; font-weight: 600; letter-spacing: 0.02em;
+    }
+    h1 .en {
+      display: block; font-size: 0.75rem; font-weight: 400;
+      color: var(--muted); margin-top: 0.2rem; letter-spacing: 0.04em;
+    }
+    .back {
+      color: var(--copper); text-decoration: none; font-size: 0.9rem;
+      border-bottom: 1px solid transparent;
+      transition: border-color 0.15s, color 0.15s;
+    }
+    .back:hover { color: var(--text); border-bottom-color: var(--copper-dim); }
+    .privacy {
+      background: var(--bg-elev); border: 1px solid var(--border);
+      border-left: 3px solid var(--copper);
+      padding: 0.7rem 0.9rem; font-size: 0.85rem; color: var(--muted);
+      margin-bottom: 1rem; line-height: 1.5;
+    }
+    .privacy strong { color: var(--copper); font-weight: 600; }
+    .stage {
+      position: relative; width: 100%; background: #050403;
+      border: 1px solid var(--border); border-radius: 6px; overflow: hidden;
+      aspect-ratio: 4 / 3; display: flex; align-items: center; justify-content: center;
+    }
+    .stage.mirror video, .stage.mirror canvas#overlay { transform: scaleX(-1); }
+    video, canvas#overlay {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      object-fit: contain; max-width: 100%;
+    }
+    video { background: #050403; }
+    canvas#overlay { pointer-events: none; }
+    .placeholder {
+      color: var(--muted); font-size: 0.9rem; text-align: center;
+      padding: 1.5rem; z-index: 1;
+    }
+    .controls {
+      display: flex; flex-wrap: wrap; align-items: center;
+      gap: 0.75rem 1rem; margin-top: 1rem;
+    }
+    button#start {
+      appearance: none; border: 1px solid var(--copper); background: transparent;
+      color: var(--copper); font: inherit; font-size: 0.95rem;
+      padding: 0.55rem 1.15rem; border-radius: 4px; cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    button#start:hover:not(:disabled) { background: var(--copper); color: var(--bg); }
+    button#start:disabled { opacity: 0.45; cursor: not-allowed; }
+    .meta {
+      display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem;
+      font-size: 0.85rem; color: var(--muted); flex: 1;
+    }
+    #status { color: var(--text); }
+    #status.error { color: var(--danger); }
+    #status.ok { color: var(--ok); }
+    #fps { font-variant-numeric: tabular-nums; min-width: 4.5rem; }
+    footer {
+      margin-top: 1.75rem; font-size: 0.75rem; color: var(--muted); line-height: 1.5;
+    }
+    footer code { font-size: 0.7rem; color: var(--copper-dim); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>
+        MediaPipe Hands
+        <span class="en" lang="en">Webcam hand landmark tracking</span>
+      </h1>
+      <a class="back" href="../">返回主页 <span lang="en">Home</span></a>
+    </header>
+
+    <p class="privacy">
+      <strong>隐私 · Privacy：</strong>
+      画面只在你浏览器本地跑，不上传服务器。
+      <span lang="en">Frames stay in your browser — nothing is uploaded.</span>
+    </p>
+
+    <div class="stage" id="stage">
+      <p class="placeholder" id="placeholder">点击下方按钮开启摄像头<br /><span lang="en">Tap below to open the camera</span></p>
+      <video id="video" playsinline muted></video>
+      <canvas id="overlay"></canvas>
+    </div>
+
+    <div class="controls">
+      <button type="button" id="start">开启摄像头</button>
+      <div class="meta">
+        <span id="status">就绪 · Ready</span>
+        <span id="fps">FPS —</span>
+        <span id="hands">手数 —</span>
+      </div>
+    </div>
+
+    <footer>
+      MediaPipe Hands（CDN）· 21 关键关键 · 双手 ·
+      纯前端，无后端。<br />
+      <code>static · GitHub Pages</code>
+    </footer>
+  </div>
+
+  <script type="module" src="./hands.js"></script>
+</body>
+</html>
